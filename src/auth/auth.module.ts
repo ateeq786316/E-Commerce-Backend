@@ -3,9 +3,10 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { JwtModule } from '@nestjs/jwt';
+import { GoogleStrategy } from './strategies/google.strategy';
 
 @Module({
-  providers: [AuthService],
+  providers: [AuthService, GoogleStrategy],
   controllers: [AuthController],
   imports: [
     PrismaModule,
