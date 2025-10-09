@@ -24,10 +24,16 @@ export class CategoriesService {
         const category = await this.prismaService.category.findUnique({
             where:{id},
         });
+        if(!category) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
         return category;
     }
 
     async update(id: string, updateCategoryDto: UpdateCategoryDto) {
+        const existingCategory = await this.prismaService.category.findUnique({
+            where:{id},
+        });
+        if(!existingCategory) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
+
         try{
         return this.prismaService.category.update({
             where:{id},
@@ -39,6 +45,11 @@ export class CategoriesService {
     }
 
     async remove(id: string) {
+        const existingCategory = await this.prismaService.category.findUnique({
+            where:{id},
+        });
+        if(!existingCategory) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
+
         try{
         return await this.prismaService.category.delete({
             where:{id},

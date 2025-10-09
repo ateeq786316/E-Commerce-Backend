@@ -1,45 +1,69 @@
-import { Controller, Get, Post, Put, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, UseGuards, Request, Query, Search } from '@nestjs/common';
 import { Body, Param } from '@nestjs/common';
+import { CreateProductDto } from '../auth/dto/create-product.dto';
+import { ProductsService } from './products.service';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { PaginationDto } from 'src/auth/dto/pagination.dto';
+import { UpdateCategoryDto } from 'src/auth/dto/update-category.dto';
+import { UpdateProductDto } from 'src/auth/dto/update-product.dto';
+
 
 @ApiTags('Products')    
 @Controller('products')
 export class ProductsController {
-    constructor(){}
+    constructor(private productsService: ProductsService){}
 
     @ApiOperation({ summary: 'Add a product' })
     @ApiResponse({ status: 200, description: 'Product added' })
+    @UseGuards(JwtAuthGuard)
     @Post()
-    async addProduct(){
-        return 'Product added';
+    async addProduct(@Request() req, @Body() createProductDto: CreateProductDto){
+        return this.productsService.create(req.user.id, createProductDto);
     }
 
     @ApiOperation({ summary: 'Get all products' })
     @ApiResponse({ status: 200, description: 'All products returned' })
     @Get()
-    async getProducts(){
-        return 'Returning all Products';
+    async getProducts(
+      @Query() paginationDto: PaginationDto,
+      @Query('search') search?: string,
+      @Query('categoryId') categoryId?: string,
+      @Query('minPrice') minPrice?: number,
+      @Query('maxPrice') maxPrice?: number,
+      @Query('inStock') inStock?: boolean,
+    ){
+      const filters={
+        search,
+        categoryId,
+        minPrice,
+        maxPrice,
+        inStock,
+      };
+        return this.productsService.findAll(paginationDto, filters);
     }
 
     @ApiOperation({ summary: 'Get a single product' })
     @ApiResponse({ status: 200, description: 'Single product returned' })
     @Get(':id')
-    async getSingleProduct(){
-        return 'Returning single Product';
+    async getSingleProduct(@Param('id') id: string){
+        return this.productsService.findOne(id);
     }
 
     @ApiOperation({ summary: 'Update a product' })
     @ApiResponse({ status: 200, description: 'Product updated' })
+    @UseGuards(JwtAuthGuard)
     @Put(':id')
-    async updateProduct(){
-        return 'Updating Product';
+    async updateProduct(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto){
+        return this.productsService.update(id, updateProductDto);
     }
 
     @ApiOperation({ summary: 'Delete a product' })
     @ApiResponse({ status: 200, description: 'Product deleted' })
+    @UseGuards(JwtAuthGuard)
     @Delete(':id')
-    async deleteProduct(){
-        return 'Deleting Product';
+    async deleteProduct(@Param('id') id: string){
+        return this.productsService.remove(id);
     }
 
     @ApiOperation({ summary: 'Upload image' })
