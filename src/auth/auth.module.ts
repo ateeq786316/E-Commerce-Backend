@@ -4,9 +4,11 @@ import { AuthController } from './auth.controller';
 import { PrismaModule } from 'src/prisma/prisma.module';
 import { JwtModule } from '@nestjs/jwt';
 import { GoogleStrategy } from './strategies/google.strategy';
+import { JwtStrategy } from './strategies/jwt.strategy';
+
 
 @Module({
-  providers: [AuthService, GoogleStrategy],
+  providers: [AuthService, GoogleStrategy, JwtStrategy],
   controllers: [AuthController],
   imports: [
     PrismaModule,
@@ -15,5 +17,6 @@ import { GoogleStrategy } from './strategies/google.strategy';
       signOptions: { expiresIn: '1d' },
     })
   ],
+  exports: [AuthService],
 })
 export class AuthModule {}

@@ -1,6 +1,6 @@
-import { Controller, Post, Get } from '@nestjs/common';
-import { Body } from '@nestjs/common';
+import { Controller, Get, Request, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 
 
 @ApiTags('Users')
@@ -10,6 +10,9 @@ export class UsersController {
 
     @ApiOperation({ summary: 'Get user profile' })
     @ApiResponse({ status: 200, description: 'User profile returned' })
+    @UseGuards(JwtAuthGuard)
     @Get('profile')
-    async getProfile(){}
+    async getProfile(@Request() req){
+        return req.user;
+    }
 }
