@@ -51,11 +51,15 @@ export class CategoriesService {
         if(!existingCategory) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
 
         try{
-        return await this.prismaService.category.delete({
-            where:{id},
-        });
-        } catch(error){
+        const deleted = await this.prismaService.category.delete({where:{id},});
+        if(deleted) 
+            {
+                return { message: 'Category deleted successfully' };
+            }
+        } 
+        catch(error){
             throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
         }
+        
     }
 }

@@ -10,47 +10,40 @@ export class ProductsService {
     constructor(private prisma: PrismaService){}
 
     async create(userId: string, createProductDto: CreateProductDto) {
-        return this.prisma.product.create({
+        const created =   await this.prisma.product.create({
             data:{
                 ...createProductDto, 
                 userId,
             },
         });
+        if(created)
+            return "Product added successfully";
     }
 
-    async findAll(paginationDto: PaginationDto, filters: any) {
-        const { page = 1, limit = 10 } = paginationDto;
-        const skip = (page - 1) * limit;
+    async findAll(page: { cursor?: string, take?: number }, filters: any) {
+        const { search, categoryId, min, max, instock } = filters;
 
-        const where: any = {};
-
-        if (filters.search) {
-            where.name = { contains: filters.search };
-        }
-        if (filters.categoryId) {
-            where.categoryId = filters.categoryId;
-        }
-
-        if (filters.minPrice !== undefined || filters.maxPrice !== undefined) { 
-            where.price = {};
-            if (filters.minPrice !== undefined) {
-                where.price.gte = filters.minPrice;
-            }
-            if (filters.maxPrice !== undefined) {
-                where.price.lte = filters.maxPrice;
-            }
-        }
-        if(filters.inStock !== undefined){
-            where.inStock = filters.inStock;
-        }
-
-        return this.prisma.product.findMany({
-            where,
-            skip,
-            take: limit,
-            orderBy: { createdAt: 'desc' },
+        const products = await this.prisma.product.findMany({
+            take: page.take,
+            skip: page.cursor ? 1 : 0,
+            cursor: page.cursor ? { id: page.cursor } : undefined,
+            where:{
+                ...(search && {name: { startsWith: search, mode: 'insensitive'}}),
+                ...(categoryId && {categoryId: categoryId}),
+                ...(min !== undefined && {price: {gte: min}}),
+                ...(max !== undefined && {price: {lte: max}}),
+                ...(instock !== undefined && {instock: instock}),
+            },
+            include: {category: true},
+            orderBy: {id: 'asc'},
         });
-    }
+        const newCursor = products.length > 0 ? products[products.length-1].id : null;
+        return{
+            newCursor,
+            data: products, 
+            nextPage: (products.length === page.take)
+        };
+      }
 
     async findOne(id: string) {
         const product = await this.prisma.product.findUnique({
@@ -68,7 +61,7 @@ export class ProductsService {
 
         let averageRating = 0;
         if(product.reviews.length > 0){
-            const totalRating = product.reviews.reduce((acc, review) => acc + review.rating, 0);
+            const totalRating = product.reviews.reduce((acc, review) => acc + review.rating, 0); 
             averageRating = totalRating / product.reviews.length;
         }
         

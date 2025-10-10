@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, StrategyOptions } from 'passport-google-oauth20';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AuthService } from '../auth.service';
 
 // Define the type for the profile object
 interface GoogleProfile {
@@ -18,31 +19,30 @@ interface GoogleProfile {
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   constructor(
     private prisma: PrismaService,
+    private authService: AuthService,
   ) {
-    // Validate environment variables
-    const googleClientId = process.env.GOOGLE_CLIENT_ID;
-    const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
-    const googleCallbackUrl = process.env.GOOGLE_CALLBACK_URL;
+  // Validate that environment variables are defined
+  const clientID = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const callbackURL = process.env.GOOGLE_CALLBACK_URL;
 
-    if (!googleClientId || !googleClientSecret || !googleCallbackUrl) {
-      throw new Error('Google OAuth environment variables are not properly configured');
-    }
-
-    const options: StrategyOptions = {
-      clientID: googleClientId,
-      clientSecret: googleClientSecret,
-      callbackURL: googleCallbackUrl,
-      scope: ['profile', 'email'],
-    };
-
-    super(options);
+  if (!clientID || !clientSecret || !callbackURL) {
+    throw new Error('Google OAuth environment variables are not properly configured');
   }
+
+  super({
+    clientID,
+    clientSecret,
+    callbackURL,
+    scope: ['profile', 'email'],
+  });
+}
 
   async validate(
     accessToken: string,
     refreshToken: string,
     profile: GoogleProfile,
-    done: Function,
+    done: (err: any, user?: any, info?: any) => void,
   ) {
     const { id, name, emails } = profile;
 
@@ -61,5 +61,6 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     }
 
     done(null, user);
+    console.log("This api got hit =================http://localhost:3000/auth/google=================");
   }
 }

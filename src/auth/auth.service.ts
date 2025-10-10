@@ -5,6 +5,7 @@ import { RefreshDto } from './dto/refresh.dto';
 import { SignupDto } from './dto/signup.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtService } from '@nestjs/jwt';
+import { console } from 'inspector';
 
 @Injectable()
 export class AuthService {
@@ -28,9 +29,14 @@ export class AuthService {
             const accessToken = this.jwtService.sign(newPayload, { expiresIn: '15m' });
             const refreshToken = this.jwtService.sign(newPayload, { expiresIn: '7d' });
 
-            await this.prisma.refreshToken.update({
-                where: { id: storedToken.id },
-                data: { token: refreshToken },
+            await this.prisma.refreshToken.delete({ where: { id: storedToken.id } })
+
+            await this.prisma.refreshToken.create({
+                data: { 
+                    token: refreshToken, 
+                    userId: storedToken.userId, 
+                    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+                },
             });
 
             return { 
@@ -111,50 +117,52 @@ export class AuthService {
         };
     }
 
-    async logout(refreshDto: RefreshDto) { 
+    async logout(userId: string) { 
         try{
-            await this.prisma.refreshToken.delete({ 
-                where: { token: refreshDto.refreshToken },
+            await this.prisma.refreshToken.deleteMany({
+                where: { 
+                    userId: userId,
+                },
             });
-            return { message: 'Logout successful' };
-        }
+            return { message: "Logged out successfully" };
+           }
         catch (error) {
-            throw new HttpException('Invalid refresh token', HttpStatus.UNAUTHORIZED);
+            throw new HttpException('Logout failed', HttpStatus.UNAUTHORIZED);
         }
     }
     
     async handleGoogleLogin(req: any) {
-  let user = await this.prisma.user.findUnique({
-    where: { googleId: req.user.googleId },
-  });
-
-  if (!user) {
-    user = await this.prisma.user.create({
-      data: {
-        googleId: req.user.googleId,
-        email: req.user.email,
-        name: req.user.name,
-      },
+    let user = await this.prisma.user.findUnique({
+        where: { googleId: req.user.googleId },
     });
-  }
 
-  const payload = { email: user.email, sub: user.id };
-  const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
-  const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
+    if (!user) {
+        user = await this.prisma.user.create({
+        data: {
+            googleId: req.user.googleId,
+            email: req.user.email,
+            name: req.user.name,
+        },
+        });
+    }
 
-  await this.prisma.refreshToken.create({
-    data: {
-      token: refreshToken,
-      userId: user.id,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    },
-  });
+    const payload = { email: user.email, sub: user.id };
+    const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });
+    const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
 
-  const { password, ...userWithoutPassword } = user;
-  return {
-    user: userWithoutPassword,
-    accessToken,
-    refreshToken,
-  };
-}
+    await this.prisma.refreshToken.create({
+        data: {
+        token: refreshToken,
+        userId: user.id,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
+    });
+
+    const { password, ...userWithoutPassword } = user;
+    return {
+        user: userWithoutPassword,
+        accessToken,
+        refreshToken,
+    };
+    }
 }
