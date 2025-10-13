@@ -3,10 +3,16 @@ import { Body, Param } from '@nestjs/common';
 import { CreateProductDto } from '../auth/dto/create-product.dto';
 import { ReviewDto } from '../auth/dto/review.dto';
 import { ProductsService } from './products.service';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiParam, ApiBody } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiParam, ApiBody, ApiConsumes } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { UpdateProductDto } from 'src/auth/dto/update-product.dto'; 
 import { PaginationDto } from 'src/auth/dto/pagination.dto';
+import { UseInterceptors, UploadedFile, FileTypeValidator, MaxFileSizeValidator, ParseFilePipe } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+import { Multer } from 'multer';
+
 
 
 
@@ -90,22 +96,6 @@ export class ProductsController {
         return this.productsService.remove(req.user.id, id);
     }
 
-    @ApiOperation({ summary: 'Upload image' })
-    @ApiResponse({ status: 200, description: 'Image uploaded' })
-    @Post(':id/images')
-    async uploadImage() {
-        console.log("This api got hit upload image=================http://localhost:3000/products/:id/images=================");
-        return 'uploadImage';
-    }
-
-    @ApiOperation({ summary: 'Delete image' })
-    @ApiResponse({ status: 200, description: 'Image deleted' })
-    @Delete(':id/images/:imageId')
-    async deleteImage() {
-        console.log("This api got hit delete image=================http://localhost:3000/products/:id/images/:imageId=================");
-        return 'This action deletes a #id image';
-    }
-
     @ApiOperation({ summary: 'Get all reviews of a product' })
     @ApiResponse({ status: 200, description: 'All feedback returned' })
     @Get(":id/reviews")
@@ -127,16 +117,72 @@ export class ProductsController {
 
     @ApiOperation({ summary: 'Delete one feedback' })
     @ApiResponse({ status: 200, description: 'Feedback deleted successfully' })
-    @ApiBearerAuth()
     @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
     @Delete(':id/reviews/:reviewId')
     async delete(@Request() req, @Param('id') productId: string, @Param('reviewId') reviewId: string) {
       console.log("This api got hit delete feedback=================http://localhost:3000/products/:id/review/:reviewId=================");
       return this.productsService.deleteReview(req.user.id, reviewId);
     }
 
+    @ApiOperation({ summary: 'Upload image'})
+    @ApiResponse({ status: 200, description: 'Image uploaded' })
+    @ApiBearerAuth()
+    @ApiConsumes('multipart/form-data')
+    @ApiBody({
+      schema: {
+        type: 'object',
+        properties: {
+          image: {
+            type: 'string',
+            format: 'binary',
+            description: 'Image file',
+          },
+        },
+      },
+    })
+    @UseGuards(JwtAuthGuard)
+    @UseInterceptors(FileInterceptor('image',{
+      storage: diskStorage({
+        destination: './uploads',
+        filename: (req, file, cb) => {
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
+          cb(null, uniqueSuffix + '-' + file.originalname)
+        }
+      }),
+      fileFilter: (req, file, cb) => {
+        if (!file.originalname.match(/\.(jpg|jpeg|png|webp)$/)) {
+          return cb(new Error('Only image files are allowed!'), false);
+        }
+        cb(null, true);
+      }
+    }))
+    @Post(':id/images')
+    async uploadImage(@Param('id') productID : string, @Request() req, @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 5 })
+        ],
+        fileIsRequired: true
+      }),    
+    )
+    file: Multer.File){
+      console.log("This api got hit upload image=================http://localhost:3000/products/:id/images=================");
+      return this.productsService.uploadImage(req.user.id, productID, file);
+    }
 
-  
 
+
+
+    @ApiOperation({ summary: 'Delete image' })
+    @ApiResponse({ status: 200, description: 'Image deleted' })
+    @ApiBearerAuth()
+    @UseGuards(JwtAuthGuard)
+    @Delete(':id/images/:imageId')
+    async deleteImage(@Param('id') productID : string, @Param('imageId') imageID : string, @Request() req) { 
+      console.log("This api got hit delete image=================http://localhost:3000/products/:id/images/:imageId=================");
+      return this.productsService.deleteImage(req.user.id, productID, imageID);
+    }
 
 }
+

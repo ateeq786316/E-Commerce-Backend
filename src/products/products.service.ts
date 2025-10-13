@@ -5,7 +5,9 @@ import { CreateProductDto } from '../auth/dto/create-product.dto';
 import { UpdateProductDto } from '../auth/dto/update-product.dto';
 import { PaginationDto } from 'src/auth/dto/pagination.dto';
 import { ReviewDto } from 'src/auth/dto/review.dto';
-import { last } from 'rxjs';
+import { join } from 'path';
+import { existsSync, mkdirSync, unlinkSync, renameSync } from 'fs';
+import { Multer } from 'multer';
 
 @Injectable()
 export class ProductsService {
@@ -204,6 +206,70 @@ export class ProductsService {
         };
     }
 
+    async uploadImage(userId: string, productId: string, file: Multer.File) {
+        const product = await this.prisma.product.findUnique({
+            where: { id: productId },
+        });
+        
+        if (!product) {
+            throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+        }
+        if (product.userId !== userId) {
+            throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+        }
+        const uploadDir = join('./uploads/products', productId)
+        if(!existsSync(uploadDir)){
+            mkdirSync(uploadDir, { recursive: true });
+        }
+        const fileName = file.filename;
+        const oldPath = join('./uploads', fileName);
+        const newPath = join(uploadDir, fileName);
 
+        renameSync(oldPath, newPath);
+        
+        const image = await this.prisma.image.create({
+            data: {
+                path: `uploads/products/${productId}/${file.filename}`,
+                url: `/uploads/products/${productId}/${file.filename}`,
+                productId: productId,
+            },
+        });
+
+        return { message: 'Image uploaded successfully', image: image };
+    }
+
+    async deleteImage(userId: string, productId: string, imageId: string) {
+        const product = await this.prisma.product.findUnique({
+            where: { id: productId },
+        });
+        if (!product) {
+            throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+        }
+        if (product.userId !== userId) {
+            throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+        }
+        const image = await this.prisma.image.findUnique({
+            where: { id: imageId },
+        });
+        if (!image) {
+            throw new HttpException('Image not found', HttpStatus.NOT_FOUND);
+        }
+        if (image.productId !== productId) {
+            throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+        }
+        try{
+            const filePath = join(process.cwd(), image.path);
+            if(existsSync(filePath)){
+                unlinkSync(filePath);
+            }
+        }
+        catch(error){
+            throw new HttpException('Image delete failed', HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+        await this.prisma.image.delete({
+            where: { id: imageId },
+        });
+        return { message: 'Image deleted successfully' };
+    }
 
 }
