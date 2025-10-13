@@ -92,8 +92,7 @@ export class ProductsService {
         });
     }
 
-    async remove(userId: string, id: string) { 
-    // async remove(id: string) { 
+    async remove(userId: string, id: string) {  
         const existingProduct = await this.prisma.product.findUnique({
             where:{id},
         });
@@ -103,7 +102,6 @@ export class ProductsService {
         if(existingProduct.userId !== userId) {
             throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
         }
-
         return this.prisma.product.delete({
             where:{id},
         });
@@ -226,7 +224,7 @@ export class ProductsService {
         const newPath = join(uploadDir, fileName);
 
         renameSync(oldPath, newPath);
-        
+
         const image = await this.prisma.image.create({
             data: {
                 path: `uploads/products/${productId}/${file.filename}`,

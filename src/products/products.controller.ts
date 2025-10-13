@@ -183,6 +183,5 @@ export class ProductsController {
       console.log("This api got hit delete image=================http://localhost:3000/products/:id/images/:imageId=================");
       return this.productsService.deleteImage(req.user.id, productID, imageID);
     }
-
 }
 
