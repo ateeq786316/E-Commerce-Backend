@@ -4,6 +4,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateProductDto } from '../auth/dto/create-product.dto';
 import { UpdateProductDto } from '../auth/dto/update-product.dto';
 import { PaginationDto } from 'src/auth/dto/pagination.dto';
+import { ReviewDto } from 'src/auth/dto/review.dto';
+import { last } from 'rxjs';
 
 @Injectable()
 export class ProductsService {
@@ -43,7 +45,7 @@ export class ProductsService {
             data: products, 
             nextPage: (products.length === page.take)
         };
-      }
+    }
 
     async findOne(id: string) {
         const product = await this.prisma.product.findUnique({
@@ -88,17 +90,120 @@ export class ProductsService {
         });
     }
 
-    async remove(id: string) { 
+    async remove(userId: string, id: string) { 
+    // async remove(id: string) { 
         const existingProduct = await this.prisma.product.findUnique({
             where:{id},
         });
         if(!existingProduct) {
             throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
         }
+        if(existingProduct.userId !== userId) {
+            throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+        }
 
         return this.prisma.product.delete({
             where:{id},
         });
     }
+
+    async createReview(userId: string, productId: string, reviewDto: ReviewDto){
+        const Product = await this.prisma.product.findUnique({
+            where:{id: productId},
+        });
+        if(!Product) {
+            throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+        }
+
+        try{ 
+            const review = await this.prisma.review.upsert({
+                where:{
+                    userId_productId:{
+                        userId: userId,
+                        productId: productId,
+                    },
+                },
+                update:{
+                    rating: reviewDto.rating,
+                    comment: reviewDto.comment,
+                },
+                create:{
+                    rating: reviewDto.rating,
+                    comment: reviewDto.comment,
+                    userId: userId,
+                    productId: productId,
+                },
+            });
+            return review;
+        }
+        catch(error){
+            throw new HttpException('Review failed', HttpStatus.UNAUTHORIZED);
+        }
+    }
+
+    async deleteReview(userId: string, reviewId: string){
+
+        const review = await this.prisma.review.findUnique({
+            where:{id: reviewId},
+        });
+        if(!review) {
+            throw new HttpException('Review not found', HttpStatus.NOT_FOUND);
+        }
+        if(review.userId !== userId) {
+            throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+        }
+        const deleted = await this.prisma.review.delete({
+            where:{id: reviewId},
+        });
+        if(deleted)
+        {return "Review deleted successfully";}
+    }
+
+    async getReviews(productId: string, paginationDto: PaginationDto) {
+        const product = await this.prisma.product.findUnique({
+            where: { id: productId },
+        });
+        
+        if (!product) {
+            throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+        }
+        
+        const { page = 1, limit = 10 } = paginationDto;
+        const take = limit;
+        const skip = (page - 1) * limit;
+        
+        const reviews = await this.prisma.review.findMany({
+            where: { productId: productId },
+            take: take,
+            skip: skip,
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                    },
+                },
+            },
+            orderBy: {
+                createdAt: 'desc',
+            },
+        });
+        
+        const total = await this.prisma.review.count({
+            where: { productId: productId },
+        });
+        
+        return {
+            data: reviews,
+            meta: {
+                total: total,
+                page: page,
+                lastPage: Math.ceil(total / limit),
+            },
+        };
+    }
+
+
 
 }

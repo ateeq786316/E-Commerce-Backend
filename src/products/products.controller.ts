@@ -1,12 +1,12 @@
-import { Controller, Get, Post, Put, Delete, UseGuards, Request, Query, Search } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, UseGuards, Request, Query} from '@nestjs/common';
 import { Body, Param } from '@nestjs/common';
 import { CreateProductDto } from '../auth/dto/create-product.dto';
+import { ReviewDto } from '../auth/dto/review.dto';
 import { ProductsService } from './products.service';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiParam, ApiBody } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { UpdateProductDto } from 'src/auth/dto/update-product.dto'; 
 import { PaginationDto } from 'src/auth/dto/pagination.dto';
-import { UpdateProductDto } from 'src/auth/dto/update-product.dto';
-import { min } from 'class-validator';
 
 
 
@@ -19,8 +19,6 @@ export class ProductsController {
     @ApiBearerAuth()
     @ApiBody({ type: CreateProductDto })
     @ApiResponse({ status: 201, description: 'Product successfully created' })
-    @ApiResponse({ status: 400, description: 'Bad Request - Invalid data' })
-    @ApiResponse({ status: 401, description: 'Unauthorized - Invalid credentials' })
     @UseGuards(JwtAuthGuard)
     @Post()
     async addProduct(@Request() req, @Body() createProductDto: CreateProductDto){
@@ -74,9 +72,6 @@ export class ProductsController {
     @ApiParam({ name: 'id', description: 'Product ID' })
     @ApiBody({ type: UpdateProductDto })
     @ApiResponse({ status: 200, description: 'Product updated successfully' })
-    @ApiResponse({ status: 404, description: 'Product not found' })
-    @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
-    @ApiResponse({ status: 400, description: 'Bad Request - Invalid data' })
     @UseGuards(JwtAuthGuard)
     @Put(':id')
     async updateProduct(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto){
@@ -88,14 +83,11 @@ export class ProductsController {
     @ApiBearerAuth()
     @ApiParam({ name: 'id', type: String, description: 'Product ID' })
     @ApiResponse({ status: 200, description: 'Product deleted successfully' })
-    @ApiResponse({ status: 404, description: 'Product not found' })
-    @ApiResponse({ status: 400, description: 'Bad Request - Invalid data' })
-    @ApiResponse({ status: 401, description: 'Unauthorized - Invalid token' })
     @UseGuards(JwtAuthGuard)
     @Delete(':id')
-    async deleteProduct(@Param('id') id: string){
+    async deleteProduct(@Request() req, @Param('id') id: string){
         console.log("This api got hit delete a single product=================http://localhost:3000/products/:id=================");
-        return this.productsService.remove(id);
+        return this.productsService.remove(req.user.id, id);
     }
 
     @ApiOperation({ summary: 'Upload image' })
@@ -114,28 +106,33 @@ export class ProductsController {
         return 'This action deletes a #id image';
     }
 
-    @ApiOperation({ summary: 'Get all feedback' })
+    @ApiOperation({ summary: 'Get all reviews of a product' })
     @ApiResponse({ status: 200, description: 'All feedback returned' })
-    @Get(":id/review")
-    async getAll() {
+    @Get(":id/reviews")
+    async getAll(@Param('id') productId: string, @Query() paginationDto: PaginationDto) {
       console.log("This api got hit get all=================http://localhost:3000/products=================");
-      return 'getAll Feedback';
+      return this.productsService.getReviews(productId, paginationDto);
     }
 
     @ApiOperation({ summary: 'Create one feedback' })
     @ApiResponse({ status: 201, description: 'Feedback created successfully' })
-    @Post(':id/review')
-    async review(@Param('id') id: string, @Body() feedbackData: any) {
-      console.log("This api got hit create one feedback=================http://localhost:3000/products/:id/review=================");
-      return `Created feedback for product ${id}`;
+    @ApiBody({ type: ReviewDto })
+    @ApiBearerAuth()
+    @UseGuards(JwtAuthGuard)
+    @Post(':id/reviews')
+    async review(@Request() req, @Param('id') productId: string, @Body() reviewDto: ReviewDto) {
+      console.log("This api got hit create one feedback=================http://localhost:3000/products/:id/reviews=================");
+      return this.productsService.createReview(req.user.id, productId, reviewDto);
     }
 
     @ApiOperation({ summary: 'Delete one feedback' })
     @ApiResponse({ status: 200, description: 'Feedback deleted successfully' })
-    @Delete(':id/review/:reviewId')
-    async delete(@Param('id') id: string, @Param('reviewId') reviewId: string) {
+    @ApiBearerAuth()
+    @UseGuards(JwtAuthGuard)
+    @Delete(':id/reviews/:reviewId')
+    async delete(@Request() req, @Param('id') productId: string, @Param('reviewId') reviewId: string) {
       console.log("This api got hit delete feedback=================http://localhost:3000/products/:id/review/:reviewId=================");
-      return `Deleted feedback ${reviewId} for product ${id}`;
+      return this.productsService.deleteReview(req.user.id, reviewId);
     }
 
 
