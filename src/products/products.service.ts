@@ -12,7 +12,7 @@ export class ProductsService {
     async create(userId: string, createProductDto: CreateProductDto) {
         const created =   await this.prisma.product.create({
             data:{
-                ...createProductDto, 
+                ...createProductDto,
                 userId,
             },
         });
