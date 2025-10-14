@@ -11,36 +11,49 @@ export class CategoriesService {
     constructor(private prismaService: PrismaService){}
 
     async create(createCategoryDto: CreateCategoryDto) {
-        return this.prismaService.category.create({
+        try{
+        const created= await this.prismaService.category.create({
             data: createCategoryDto,
         });
-    }
+        if(created)
+        {return 'Category created successfully';}
+        } catch(error){
+            throw new HttpException('Unable to create category. Please try again.', HttpStatus.BAD_REQUEST);
+        }    }
+    
     async findAll() {
+        try{
         return this.prismaService.category.findMany({
             orderBy:{createdAt:'desc'},
         });
+        }
+        catch(error){throw new HttpException('Unable to retrieve categories. Please try again.',HttpStatus.INTERNAL_SERVER_ERROR)}
     }
     async findOne(id: string) {
+        try{
         const category = await this.prismaService.category.findUnique({
             where:{id},
         });
-        if(!category) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
+        if(!category) throw new HttpException('The category not found, doesnt exist or have been removed', HttpStatus.NOT_FOUND);
         return category;
+        } catch(error){throw new HttpException('Unable to retrieve this category. Please try again.',HttpStatus.INTERNAL_SERVER_ERROR)}
     }
 
     async update(id: string, updateCategoryDto: UpdateCategoryDto) {
         const existingCategory = await this.prismaService.category.findUnique({
             where:{id},
         });
-        if(!existingCategory) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
+        if(!existingCategory) throw new HttpException('The category you are tying to update not found, doesnt exist or have been removed', HttpStatus.NOT_FOUND);
 
         try{
-        return this.prismaService.category.update({
+        const updated= await this.prismaService.category.update({
             where:{id},
             data: updateCategoryDto,
         });
+        if(updated)
+            {return 'Category updated successfully';} 
         } catch(error){
-            throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+            throw new HttpException('Unable to update category. Please try again.', HttpStatus.BAD_REQUEST);
         }
     }
 
@@ -48,7 +61,7 @@ export class CategoriesService {
         const existingCategory = await this.prismaService.category.findUnique({
             where:{id},
         });
-        if(!existingCategory) throw new HttpException('Category not found', HttpStatus.NOT_FOUND);
+        if(!existingCategory) throw new HttpException('The category you are tying to delete not found, doesnt exist or have been removed', HttpStatus.NOT_FOUND);
 
         try{
         const deleted = await this.prismaService.category.delete({where:{id},});
@@ -58,7 +71,7 @@ export class CategoriesService {
             }
         } 
         catch(error){
-            throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+            throw new HttpException('Unable to delete category. Please try again.', HttpStatus.BAD_REQUEST);
         }
         
     }

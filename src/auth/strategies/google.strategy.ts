@@ -1,10 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, StrategyOptions } from 'passport-google-oauth20';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthService } from '../auth.service';
 
-// Define the type for the profile object
 interface GoogleProfile {
   id: string;
   name: {
@@ -21,13 +20,13 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     private prisma: PrismaService,
     private authService: AuthService,
   ) {
-  // Validate that environment variables are defined
+
   const clientID = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   const callbackURL = process.env.GOOGLE_CALLBACK_URL;
 
   if (!clientID || !clientSecret || !callbackURL) {
-    throw new Error('Google OAuth environment variables are not properly configured');
+    throw new Error('Google OAuth environment variables are not properly configured, Please check your .env file');
   }
 
   super({
@@ -44,6 +43,8 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     profile: GoogleProfile,
     done: (err: any, user?: any, info?: any) => void,
   ) {
+
+    try{
     const { id, name, emails } = profile;
 
     let user = await this.prisma.user.findUnique({
@@ -62,5 +63,9 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
 
     done(null, user);
     console.log("This api got hit =================http://localhost:3000/auth/google=================");
+  }
+    catch(error){
+      done(new HttpException('unable to complete google authentication, Try use email and password to login.', HttpStatus.INTERNAL_SERVER_ERROR),null);
+    }
   }
 }

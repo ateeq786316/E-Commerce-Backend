@@ -14,6 +14,8 @@ export class ProductsService {
     constructor(private prisma: PrismaService){}
 
     async create(userId: string, createProductDto: CreateProductDto) {
+
+        try{
         const created =   await this.prisma.product.create({
             data:{
                 ...createProductDto,
@@ -22,9 +24,14 @@ export class ProductsService {
         });
         if(created)
             return "Product added successfully";
+        }
+        catch (error) {
+            throw new HttpException('Unable to create product. Please try again.', HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 
     async findAll(page: { cursor?: string, take?: number }, filters: any) {
+        try{
         const { search, categoryId, min, max, instock } = filters;
 
         const products = await this.prisma.product.findMany({
@@ -47,9 +54,12 @@ export class ProductsService {
             data: products, 
             nextPage: (products.length === page.take)
         };
+        }
+        catch(error){throw new HttpException('Unable to retrieve products. Please try again.',HttpStatus.INTERNAL_SERVER_ERROR)}
     }
 
     async findOne(id: string) {
+    try{
         const product = await this.prisma.product.findUnique({
             where:{id},
             include:{
@@ -60,7 +70,7 @@ export class ProductsService {
         });
 
         if(!product){
-            throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+            throw new HttpException('The Product you are looking for does not exist or has been removed.', HttpStatus.NOT_FOUND);
         }
 
         let averageRating = 0;
@@ -76,35 +86,46 @@ export class ProductsService {
             averageRating, 
             reviewsCount: product.reviews.length 
         };
+        }
+        catch(error){throw new HttpException('Unable to retrieve the single product. Please try again.',HttpStatus.INTERNAL_SERVER_ERROR)}
     }
 
     async update(id: string, updateProductDto: UpdateProductDto){
+        try{
         const existingProduct = await this.prisma.product.findUnique({
             where:{id},
         });
         if(!existingProduct) {
-            throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+            throw new HttpException('The Product you are trying to update does not exist or has been removed.', HttpStatus.NOT_FOUND);
         }
 
-        return this.prisma.product.update({
+        const updated = await this.prisma.product.update({
             where:{id},
             data:updateProductDto,
         });
+        if(updated){            
+            return "Product updated successfully";}
+        }
+        catch(error){throw new HttpException('Unable to update the product. Please try again.',HttpStatus.INTERNAL_SERVER_ERROR)}
     }
 
     async remove(userId: string, id: string) {  
+        try{
         const existingProduct = await this.prisma.product.findUnique({
             where:{id},
         });
         if(!existingProduct) {
-            throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+            throw new HttpException('The Product you are trying to delete does not exist or has been removed.', HttpStatus.NOT_FOUND);
         }
         if(existingProduct.userId !== userId) {
-            throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+            throw new HttpException('You do not have permission to delete this product.', HttpStatus.UNAUTHORIZED);
         }
-        return this.prisma.product.delete({
+        await this.prisma.product.delete({
             where:{id},
         });
+        return "Product deleted successfully";
+        }
+        catch(error){throw new HttpException('Unable to delete the product. Please try again.',HttpStatus.INTERNAL_SERVER_ERROR)}
     }
 
     async createReview(userId: string, productId: string, reviewDto: ReviewDto){
@@ -112,7 +133,7 @@ export class ProductsService {
             where:{id: productId},
         });
         if(!Product) {
-            throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+            throw new HttpException('The Product you are trying to review does not exist or has been removed.', HttpStatus.NOT_FOUND);
         }
 
         try{ 
@@ -134,43 +155,53 @@ export class ProductsService {
                     productId: productId,
                 },
             });
-            return review;
+            return "Review added successfully";
         }
         catch(error){
-            throw new HttpException('Review failed', HttpStatus.UNAUTHORIZED);
+            throw new HttpException('Unable to add your review. Please try again.', HttpStatus.UNAUTHORIZED);
         }
     }
 
     async deleteReview(userId: string, reviewId: string){
-
+        try{ 
+        
         const review = await this.prisma.review.findUnique({
             where:{id: reviewId},
         });
         if(!review) {
-            throw new HttpException('Review not found', HttpStatus.NOT_FOUND);
+            throw new HttpException('The Review you are trying to delete does not exist or has been removed.', HttpStatus.NOT_FOUND);
         }
         if(review.userId !== userId) {
-            throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+            throw new HttpException('You do not have permission to delete this review.', HttpStatus.UNAUTHORIZED);
         }
         const deleted = await this.prisma.review.delete({
             where:{id: reviewId},
         });
-        if(deleted)
-        {return "Review deleted successfully";}
+        if(deleted){
+            return "Review deleted successfully";}
+        } catch(error){
+            throw new HttpException('Unable to delete your review. Please try again.', HttpStatus.UNAUTHORIZED);
+        }
     }
 
     async getReviews(productId: string, paginationDto: PaginationDto) {
+        try{
         const product = await this.prisma.product.findUnique({
             where: { id: productId },
         });
         
         if (!product) {
-            throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+            throw new HttpException('The Product you are trying to check does not exist or has been removed.', HttpStatus.NOT_FOUND);
         }
         
         const { page = 1, limit = 10 } = paginationDto;
         const take = limit;
         const skip = (page - 1) * limit;
+
+        const whereclause: any = { productId: productId };
+        if(paginationDto.rating !== undefined){
+            whereclause.rating = paginationDto.rating;
+        }
         
         const reviews = await this.prisma.review.findMany({
             where: { productId: productId },
@@ -191,7 +222,7 @@ export class ProductsService {
         });
         
         const total = await this.prisma.review.count({
-            where: { productId: productId },
+            where: whereclause,
         });
         
         return {
@@ -203,17 +234,22 @@ export class ProductsService {
             },
         };
     }
+    catch(error)
+    {throw new HttpException('Unable to retrieve reviews. Please try again.',HttpStatus.INTERNAL_SERVER_ERROR);}
+}
+
 
     async uploadImage(userId: string, productId: string, file: Multer.File) {
+        try{
         const product = await this.prisma.product.findUnique({
             where: { id: productId },
         });
         
         if (!product) {
-            throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+            throw new HttpException('The Product you are trying to access does not exist or has been removed.', HttpStatus.NOT_FOUND);
         }
         if (product.userId !== userId) {
-            throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+            throw new HttpException('You do not have permission to perform this action.', HttpStatus.UNAUTHORIZED);
         }
         const uploadDir = join('./uploads/products', productId)
         if(!existsSync(uploadDir)){
@@ -235,25 +271,28 @@ export class ProductsService {
 
         return { message: 'Image uploaded successfully', image: image };
     }
+    catch(error){throw new HttpException('Unable to upload the image. Please try again.',HttpStatus.INTERNAL_SERVER_ERROR)}
+}
 
     async deleteImage(userId: string, productId: string, imageId: string) {
+        try{
         const product = await this.prisma.product.findUnique({
             where: { id: productId },
         });
         if (!product) {
-            throw new HttpException('Product not found', HttpStatus.NOT_FOUND);
+            throw new HttpException('The Product you are trying to access does not exist or has been removed.', HttpStatus.NOT_FOUND);
         }
         if (product.userId !== userId) {
-            throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+            throw new HttpException('You do not have permission to perform this action.', HttpStatus.UNAUTHORIZED);
         }
         const image = await this.prisma.image.findUnique({
             where: { id: imageId },
         });
         if (!image) {
-            throw new HttpException('Image not found', HttpStatus.NOT_FOUND);
+            throw new HttpException('The Image you are trying to delete does not exist or has been removed.', HttpStatus.NOT_FOUND);
         }
         if (image.productId !== productId) {
-            throw new HttpException('Unauthorized', HttpStatus.UNAUTHORIZED);
+            throw new HttpException('You do not have permission to delete this image.', HttpStatus.UNAUTHORIZED);
         }
         try{
             const filePath = join(process.cwd(), image.path);
@@ -262,12 +301,14 @@ export class ProductsService {
             }
         }
         catch(error){
-            throw new HttpException('Image delete failed', HttpStatus.INTERNAL_SERVER_ERROR);
+            throw new HttpException('Unable to delete the image. Please try again.', HttpStatus.INTERNAL_SERVER_ERROR);
         }
         await this.prisma.image.delete({
             where: { id: imageId },
         });
         return { message: 'Image deleted successfully' };
+        }
+        catch(error){throw new HttpException('Unable to delete the image. Please try again.', HttpStatus.INTERNAL_SERVER_ERROR)}
     }
 
 }

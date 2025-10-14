@@ -14,7 +14,6 @@ export class AuthService {
         private jwtService: JwtService,
     ){}
 
-
     async refreshToken(token: string) { 
         try{
 
@@ -23,7 +22,7 @@ export class AuthService {
                 where: { token: token },
             });
             if (!storedToken) {
-                throw new HttpException('Invalid refresh token', HttpStatus.UNAUTHORIZED);
+                throw new HttpException('Your session has expired. Please login again.', HttpStatus.UNAUTHORIZED);
             }
             const newPayload = { email: payload.email, sub: payload.sub };
             const accessToken = this.jwtService.sign(newPayload, { expiresIn: '15m' });
@@ -45,16 +44,17 @@ export class AuthService {
             };
         }
         catch (error) {
-            throw new HttpException('Invalid refresh token', HttpStatus.UNAUTHORIZED);
+            throw new HttpException('Unable to refresh your session, please login again.', HttpStatus.UNAUTHORIZED);
         }
     }
 
     async signup(signupDto: SignupDto){
+        try{
         const existingUser = await this.prisma.user.findUnique({
             where: {email: signupDto.email},
         });
         if(existingUser){
-            throw new HttpException('User already exists', HttpStatus.CONFLICT);
+            throw new HttpException('An account with this email already exists. Please try logging in with other email instead.', HttpStatus.CONFLICT);
         }
 
         const hashedPassword = await bcrypt.hash(signupDto.password, 10);
@@ -85,18 +85,23 @@ export class AuthService {
             accessToken, 
             refreshToken,
         };
+        }
+        catch (error) {
+            throw new HttpException('Unable to create your account. Please check information and Try again.', HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 
     async login(loginDto: LoginDto) { 
+        try{
         const user = await this.prisma.user.findUnique({
             where: { email: loginDto.email },
         });
         if (!user) {
-            throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
+            throw new HttpException('User not found', HttpStatus.UNAUTHORIZED);
         }
         const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
         if (!isPasswordValid) {
-            throw new HttpException('Invalid credentials', HttpStatus.UNAUTHORIZED);
+            throw new HttpException('Invalid email or password. Please check your credentials and try again.', HttpStatus.UNAUTHORIZED);
         }
         const payload = { sub: user.id, email: user.email };
         const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' }) ;
@@ -115,6 +120,10 @@ export class AuthService {
             accessToken,
             refreshToken,
         };
+        }
+        catch (error) {
+            throw new HttpException('Unable to Login. Please try again.', HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 
     async logout(userId: string) { 
@@ -124,14 +133,16 @@ export class AuthService {
                     userId: userId,
                 },
             });
-            return { message: "Logged out successfully" };
+            return { message: "You have successfully logged out" };
            }
         catch (error) {
-            throw new HttpException('Logout failed', HttpStatus.UNAUTHORIZED);
+            throw new HttpException('Unable to log you out. Please try again.', HttpStatus.UNAUTHORIZED);
         }
     }
     
     async handleGoogleLogin(req: any) {
+    try{ 
+        
     let user = await this.prisma.user.findUnique({
         where: { googleId: req.user.googleId },
     });
@@ -164,5 +175,9 @@ export class AuthService {
         accessToken,
         refreshToken,
     };
+    }
+        catch (error) {
+                throw new HttpException('Unable to complete Google authentication. Please try again.', HttpStatus.INTERNAL_SERVER_ERROR);
+            }
     }
 }

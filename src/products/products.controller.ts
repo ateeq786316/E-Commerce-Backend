@@ -40,7 +40,7 @@ export class ProductsController {
     @ApiQuery({ name: 'min', required: false, type: Number, description: 'Minimum price' })
     @ApiQuery({ name: 'max', required: false, type: Number, description: 'Maximum price' })
     @ApiQuery({ name: 'instock', required: false, type: Boolean, description: 'Filter by stock' })
-    @ApiOperation({ summary: 'Get all products with optional filters' })
+    @ApiOperation({ summary: 'Get all products with optional filters\n if you want to view image http://localhost:3000/{paste path of image or url and hit api in new browser}' })
     @ApiResponse({ status: 200, description: 'All products returned based on filters' })
     async getProducts(
       @Query('cursor') cursor?: string,
@@ -97,11 +97,24 @@ export class ProductsController {
     }
 
     @ApiOperation({ summary: 'Get all reviews of a product' })
-    @ApiResponse({ status: 200, description: 'All feedback returned' })
+
+    @ApiQuery({ name: 'page', required: false, type: Number, description: 'Page number' })
+    @ApiQuery({ name: 'limit', required: false, type: Number, description: 'Number of reviews to take' })
+    @ApiQuery({ name: 'rating', required: false, type: Number, description: 'Rating to filter by' })
     @Get(":id/reviews")
-    async getAll(@Param('id') productId: string, @Query() paginationDto: PaginationDto) {
+    async getAll(
+      @Param('id') productId: string, 
+      @Query('page') page?: number,
+      @Query('limit') limit?: number,
+      @Query('rating') rating?: number
+ 
+    ) {
       console.log("This api got hit get all=================http://localhost:3000/products=================");
-      return this.productsService.getReviews(productId, paginationDto);
+      const paginationDto = new PaginationDto();
+      paginationDto.page = page;
+      paginationDto.limit = limit;
+      paginationDto.rating = rating;
+      return await this.productsService.getReviews(productId, paginationDto);
     }
 
     @ApiOperation({ summary: 'Create one feedback' })

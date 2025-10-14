@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { HttpException, HttpStatus } from '@nestjs/common';
 @Injectable()
 export class UsersService {
     constructor(private prisma: PrismaService){}
 
     async findOneByEmail(email: string) {
+        try{
         const user= await this.prisma.user.findUnique({
             where: {
                 email,
@@ -15,8 +17,14 @@ export class UsersService {
             return result;
         }
         return null;
+        } catch (error) {
+            throw new HttpException('Unable to find your account. Please check information and Try again.', HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
+
     async findOneById(id: string) {
+        try{
+        
         const user= await this.prisma.user.findUnique({
             where: {
                 id,
@@ -27,5 +35,8 @@ export class UsersService {
             return result;
         }
         return null;
+        } catch (error) {
+            throw new HttpException('Unable to find your account. Please check information and Try again.', HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 }
