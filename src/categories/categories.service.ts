@@ -12,14 +12,32 @@ export class CategoriesService {
 
     async create(createCategoryDto: CreateCategoryDto) {
         try{
-        const created= await this.prismaService.category.create({
-            data: createCategoryDto,
+        const existingCategory = await this.prismaService.category.findFirst({
+            where:{
+                name: 
+                {
+                    equals: createCategoryDto.name,
+                    mode: 'insensitive',
+                }
+            },
+        });
+        if(existingCategory)
+        {throw new HttpException('Category already exists', HttpStatus.CONFLICT);}
+
+        const created = await this.prismaService.category.create({
+            data: {
+                ...createCategoryDto,
+                name: createCategoryDto.name.trim(),
+                description: createCategoryDto.description.trim(),
+            }
         });
         if(created)
-        {return 'Category created successfully';}
+            {return 'Category created successfully';}
         } catch(error){
+            if(error instanceof HttpException){throw error;}
             throw new HttpException('Unable to create category. Please try again.', HttpStatus.BAD_REQUEST);
-        }    }
+        }    
+    }
     
     async findAll() {
         try{
@@ -29,6 +47,7 @@ export class CategoriesService {
         }
         catch(error){throw new HttpException('Unable to retrieve categories. Please try again.',HttpStatus.INTERNAL_SERVER_ERROR)}
     }
+    
     async findOne(id: string) {
         try{
         const category = await this.prismaService.category.findUnique({
@@ -36,7 +55,11 @@ export class CategoriesService {
         });
         if(!category) throw new HttpException('The category not found, doesnt exist or have been removed', HttpStatus.NOT_FOUND);
         return category;
-        } catch(error){throw new HttpException('Unable to retrieve this category. Please try again.',HttpStatus.INTERNAL_SERVER_ERROR)}
+        } 
+        catch(error){
+            if(error instanceof HttpException){throw error;}
+            throw new HttpException('Unable to retrieve this category. Please try again.',HttpStatus.INTERNAL_SERVER_ERROR)
+        }
     }
 
     async update(id: string, updateCategoryDto: UpdateCategoryDto) {
@@ -53,6 +76,7 @@ export class CategoriesService {
         if(updated)
             {return 'Category updated successfully';} 
         } catch(error){
+            if(error instanceof HttpException){throw error;}
             throw new HttpException('Unable to update category. Please try again.', HttpStatus.BAD_REQUEST);
         }
     }
@@ -71,6 +95,7 @@ export class CategoriesService {
             }
         } 
         catch(error){
+            if(error instanceof HttpException){throw error;}
             throw new HttpException('Unable to delete category. Please try again.', HttpStatus.BAD_REQUEST);
         }
         

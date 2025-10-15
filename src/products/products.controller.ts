@@ -10,7 +10,6 @@ import { PaginationDto } from 'src/auth/dto/pagination.dto';
 import { UseInterceptors, UploadedFile, FileTypeValidator, MaxFileSizeValidator, ParseFilePipe } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname } from 'path';
 import { Multer } from 'multer';
 
 
@@ -157,10 +156,20 @@ export class ProductsController {
     @UseGuards(JwtAuthGuard)
     @UseInterceptors(FileInterceptor('image',{
       storage: diskStorage({
-        destination: './uploads',
+        destination: (req, file, cb)=>{
+          const productId = req.params.id;
+          const uploadDir = `./uploads/products/${productId}`;
+          const fs = require('fs');
+          const {join} = require('path');
+          const fullPath = join(process.cwd(), uploadDir);
+          if (!fs.existsSync(fullPath)) {
+            fs.mkdirSync(fullPath, { recursive: true });
+          }
+          cb(null, uploadDir);
+        },
         filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
-          cb(null, uniqueSuffix + '-' + file.originalname)
+          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+          cb(null, uniqueSuffix + '-' + file.originalname);
         }
       }),
       fileFilter: (req, file, cb) => {

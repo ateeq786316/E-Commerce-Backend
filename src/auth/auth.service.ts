@@ -24,6 +24,11 @@ export class AuthService {
             if (!storedToken) {
                 throw new HttpException('Your session has expired. Please login again.', HttpStatus.UNAUTHORIZED);
             }
+
+            if (storedToken.expiresAt < new Date()) {
+                throw new HttpException('Your session has expired. Please login again.', HttpStatus.UNAUTHORIZED);
+            }
+
             const newPayload = { email: payload.email, sub: payload.sub };
             const accessToken = this.jwtService.sign(newPayload, { expiresIn: '15m' });
             const refreshToken = this.jwtService.sign(newPayload, { expiresIn: '7d' });
@@ -144,16 +149,22 @@ export class AuthService {
     try{ 
         
     let user = await this.prisma.user.findUnique({
-        where: { googleId: req.user.googleId },
+        where: { googleId: req.user.email },
     });
-
-    if (!user) {
+    if(user && !user.googleId)
+    {
+        user = await this.prisma.user.update({
+            where: { email: req.user.email },
+            data: { googleId: req.user.googleId },
+        });
+    }
+    else if (!user) {
         user = await this.prisma.user.create({
-        data: {
-            googleId: req.user.googleId,
-            email: req.user.email,
-            name: req.user.name,
-        },
+            data: {
+                email: req.user.email,
+                name: req.user.name,
+                googleId: req.user.googleId,
+            },
         });
     }
 

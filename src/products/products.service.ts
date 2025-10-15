@@ -6,7 +6,7 @@ import { UpdateProductDto } from '../auth/dto/update-product.dto';
 import { PaginationDto } from 'src/auth/dto/pagination.dto';
 import { ReviewDto } from 'src/auth/dto/review.dto';
 import { join } from 'path';
-import { existsSync, mkdirSync, unlinkSync, renameSync } from 'fs';
+import { existsSync, unlinkSync } from 'fs';
 import { Multer } from 'multer';
 
 @Injectable()
@@ -26,6 +26,7 @@ export class ProductsService {
             return "Product added successfully";
         }
         catch (error) {
+            if(error instanceof HttpException){throw error;}
             throw new HttpException('Unable to create product. Please try again.', HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
@@ -55,7 +56,11 @@ export class ProductsService {
             nextPage: (products.length === page.take)
         };
         }
-        catch(error){throw new HttpException('Unable to retrieve products. Please try again.',HttpStatus.INTERNAL_SERVER_ERROR)}
+        catch(error)
+        {
+            if(error instanceof HttpException){throw error;}
+            throw new HttpException('Unable to retrieve products. Please try again.',HttpStatus.INTERNAL_SERVER_ERROR)
+        }
     }
 
     async findOne(id: string) {
@@ -87,7 +92,10 @@ export class ProductsService {
             reviewsCount: product.reviews.length 
         };
         }
-        catch(error){throw new HttpException('Unable to retrieve the single product. Please try again.',HttpStatus.INTERNAL_SERVER_ERROR)}
+        catch(error){
+            if(error instanceof HttpException){throw error;}
+            throw new HttpException('Unable to retrieve the single product. Please try again.',HttpStatus.INTERNAL_SERVER_ERROR)
+        }
     }
 
     async update(id: string, updateProductDto: UpdateProductDto){
@@ -106,7 +114,10 @@ export class ProductsService {
         if(updated){            
             return "Product updated successfully";}
         }
-        catch(error){throw new HttpException('Unable to update the product. Please try again.',HttpStatus.INTERNAL_SERVER_ERROR)}
+        catch(error){
+            if(error instanceof HttpException){throw error;}
+            throw new HttpException('Unable to update the product. Please try again.',HttpStatus.INTERNAL_SERVER_ERROR)
+        }
     }
 
     async remove(userId: string, id: string) {  
@@ -125,7 +136,10 @@ export class ProductsService {
         });
         return "Product deleted successfully";
         }
-        catch(error){throw new HttpException('Unable to delete the product. Please try again.',HttpStatus.INTERNAL_SERVER_ERROR)}
+        catch(error){
+            if(error instanceof HttpException){throw error;}
+            throw new HttpException('Unable to delete the product. Please try again.',HttpStatus.INTERNAL_SERVER_ERROR)
+        }
     }
 
     async createReview(userId: string, productId: string, reviewDto: ReviewDto){
@@ -158,6 +172,7 @@ export class ProductsService {
             return "Review added successfully";
         }
         catch(error){
+            if(error instanceof HttpException){throw error;}
             throw new HttpException('Unable to add your review. Please try again.', HttpStatus.UNAUTHORIZED);
         }
     }
@@ -180,6 +195,7 @@ export class ProductsService {
         if(deleted){
             return "Review deleted successfully";}
         } catch(error){
+            if(error instanceof HttpException){throw error;}
             throw new HttpException('Unable to delete your review. Please try again.', HttpStatus.UNAUTHORIZED);
         }
     }
@@ -235,9 +251,11 @@ export class ProductsService {
         };
     }
     catch(error)
-    {throw new HttpException('Unable to retrieve reviews. Please try again.',HttpStatus.INTERNAL_SERVER_ERROR);}
-}
-
+    {
+        if(error instanceof HttpException){throw error;}
+        throw new HttpException('Unable to retrieve reviews. Please try again.',HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+    }
 
     async uploadImage(userId: string, productId: string, file: Multer.File) {
         try{
@@ -251,16 +269,6 @@ export class ProductsService {
         if (product.userId !== userId) {
             throw new HttpException('You do not have permission to perform this action.', HttpStatus.UNAUTHORIZED);
         }
-        const uploadDir = join('./uploads/products', productId)
-        if(!existsSync(uploadDir)){
-            mkdirSync(uploadDir, { recursive: true });
-        }
-        const fileName = file.filename;
-        const oldPath = join('./uploads', fileName);
-        const newPath = join(uploadDir, fileName);
-
-        renameSync(oldPath, newPath);
-
         const image = await this.prisma.image.create({
             data: {
                 path: `uploads/products/${productId}/${file.filename}`,
@@ -271,8 +279,11 @@ export class ProductsService {
 
         return { message: 'Image uploaded successfully', image: image };
     }
-    catch(error){throw new HttpException('Unable to upload the image. Please try again.',HttpStatus.INTERNAL_SERVER_ERROR)}
-}
+    catch(error){
+        if(error instanceof HttpException){throw error;}
+        throw new HttpException('Unable to upload the image. Please try again.',HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+    }
 
     async deleteImage(userId: string, productId: string, imageId: string) {
         try{
@@ -308,7 +319,10 @@ export class ProductsService {
         });
         return { message: 'Image deleted successfully' };
         }
-        catch(error){throw new HttpException('Unable to delete the image. Please try again.', HttpStatus.INTERNAL_SERVER_ERROR)}
+        catch(error){
+            if(error instanceof HttpException){throw error;}
+            throw new HttpException('Unable to delete the image. Please try again.', HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 
 }

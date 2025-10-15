@@ -18,6 +18,7 @@ export class UsersService {
         }
         return null;
         } catch (error) {
+            if(error instanceof HttpException){throw error;}
             throw new HttpException('Unable to find your account. Please check information and Try again.', HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
@@ -36,6 +37,7 @@ export class UsersService {
         }
         return null;
         } catch (error) {
+            if(error instanceof HttpException){throw error;}
             throw new HttpException('Unable to find your account. Please check information and Try again.', HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
