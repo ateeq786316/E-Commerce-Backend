@@ -7,7 +7,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery, ApiParam, 
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
 import { UpdateProductDto } from 'src/auth/dto/update-product.dto'; 
 import { PaginationDto } from 'src/auth/dto/pagination.dto';
-import { UseInterceptors, UploadedFile, FileTypeValidator, MaxFileSizeValidator, ParseFilePipe } from '@nestjs/common';
+import { UseInterceptors, UploadedFile } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { Multer } from 'multer';
@@ -180,15 +180,15 @@ export class ProductsController {
       }
     }))
     @Post(':id/images')
-    async uploadImage(@Param('id') productID : string, @Request() req, @UploadedFile(
-      new ParseFilePipe({
-        validators: [
-          new MaxFileSizeValidator({ maxSize: 1024 * 1024 * 5 })
-        ],
-        fileIsRequired: true
-      }),    
-    )
-    file: Multer.File){
+    async uploadImage(@Param('id') productID : string, @Request() req, @UploadedFile() file: Multer.File){
+      if (!file) {
+        throw new Error('File is required');
+      }
+      
+      // Manual file size validation (5MB limit)
+      if (file.size > 1024 * 1024 * 5) {
+        throw new Error('File size exceeds the 5MB limit');
+      }
       console.log("This api got hit upload image=================http://localhost:3000/products/:id/images=================");
       return this.productsService.uploadImage(req.user.id, productID, file);
     }

@@ -12,7 +12,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 @Module({
   imports: 
   [
-    ScheduleModule.forRoot({ timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone } as any),
+    ScheduleModule.forRoot(),
     ConfigModule.forRoot({ isGlobal: true }),
     AuthModule, 
     PrismaModule, 
