@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import { CronJob } from 'cron';
+import { SchedulerRegistry } from '@nestjs/schedule';
 import { Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
@@ -8,8 +10,9 @@ import * as nodemailer from 'nodemailer';
 export class TasksService {
     private readonly logger = new Logger(TasksService.name);
     private transporter: nodemailer.Transporter;
+    private dynamicJobs: Map<string, CronJob> = new Map();
 
-    constructor(private prisma: PrismaService){
+    constructor(private prisma: PrismaService, private schedulerRegistry: SchedulerRegistry){
         this.transporter = nodemailer.createTransport({
             host: 'smtp.gmail.com',
             port: 587,
@@ -21,7 +24,7 @@ export class TasksService {
         });
     }
 
-    @Cron("10 * * * * *")
+    @Cron("* * * 1 * *")
     async handleExpiredTokensCleanup() {
         // this.logger.debug('Cleaning expired tokens...');
         try{
@@ -30,11 +33,7 @@ export class TasksService {
             // this.logger.debug(`Current server timezone : ${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
 
             const tokensToBeDeleted = await this.prisma.refreshToken.findMany({
-                where: {
-                    expiresAt: {
-                        lt: new Date(),
-                    },
-                },
+                where: {expiresAt: {lt: new Date(),},},
                 select: {
                     id: true,
                     userId: true,
@@ -45,9 +44,7 @@ export class TasksService {
 
             const expiredTokens = await this.prisma.refreshToken.deleteMany({
                 where: {
-                    expiresAt: {
-                        lt: new Date(),
-                    },
+                    expiresAt: {lt: new Date(),},
                 },
             });
 
@@ -85,5 +82,56 @@ export class TasksService {
         catch (error) {
             this.logger.error('Failed to clean up expired tokens', error.stack);
         }
+    }
+
+    addDynamicCronJob(name: string, cronExpression: string, callback: () => void): boolean {
+        try{
+            if(this.dynamicJobs.has(name)){
+                this.logger.warn(`Dynamic cron job ${name} already exists`)
+                return false;
+            }
+            const job = new CronJob(cronExpression, callback, null, true);
+            this.dynamicJobs.set(name, job);
+            job.start();
+            this.logger.debug(`Added dynamic cron job ${name} with expression ${cronExpression}`);
+            return true;
+        }
+        catch(error){
+            this.logger.error(`Failed to add dynamic cron job ${name}`, error.stack);
+            return false;
+        }
+    }
+
+    updateDynamicJob(name: string, cronExpression: string, callback: () => void): boolean {
+        try{
+            this.deleteDynamicJob(name);
+            return this.addDynamicCronJob(name, cronExpression, callback);
+        }
+        catch(error){
+            this.logger.error(`Failed to update dynamic cron job ${name}`, error.stack);
+            return false;
+        }
+    }
+
+    deleteDynamicJob(name: string): boolean {
+        try{
+            const job = this.dynamicJobs.get(name);
+            if(!job){
+                this.logger.warn(`Dynamic cron job ${name} does not exist`);
+                return false;
+            }
+            job.stop();
+            this.dynamicJobs.delete(name);
+            this.logger.debug(`Deleted dynamic cron job ${name}`);
+            return true;
+        }
+        catch(error){
+            this.logger.error(`Failed to delete dynamic cron job ${name}`, error.stack);
+            return false;
+        }
+    }
+    
+    getAllDynamicJobsNames(): string[]{
+        return Array.from(this.dynamicJobs.keys());
     }
 }
