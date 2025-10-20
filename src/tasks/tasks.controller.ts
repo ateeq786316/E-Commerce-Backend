@@ -103,4 +103,18 @@ export class TasksController {
             return { success: false, jobs: [], message: 'Failed to retrieve jobs' };
         }
     }
+
+    @Post('sync-products')
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation({ summary: 'Sync all products to Google Sheets' })
+    @ApiResponse({ status: 200, description: 'Products synced successfully' })
+    async syncAllProducts(): Promise<{ success: boolean; message: string }> {
+        try {
+            await this.tasksService.syncAllProducts();
+            return { success: true, message: 'All products synced to Google Sheets successfully' };
+        } catch (error) {
+            this.logger.error('Error syncing products to Google Sheets', error.stack);
+            return { success: false, message: 'Failed to sync products to Google Sheets' };
+        }
+    }
 }

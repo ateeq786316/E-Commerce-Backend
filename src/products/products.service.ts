@@ -8,10 +8,14 @@ import { ReviewDto } from 'src/auth/dto/review.dto';
 import { join } from 'path';
 import { existsSync, unlinkSync } from 'fs';
 import { Multer } from 'multer';
+import { GoogleSheetsService } from '../google-sheets/google-sheets.service';
 
 @Injectable()
 export class ProductsService {
-    constructor(private prisma: PrismaService){}
+    constructor(
+        private prisma: PrismaService,
+        private googleSheetsService: GoogleSheetsService
+    ){}
 
     async create(userId: string, createProductDto: CreateProductDto) {
 
@@ -22,8 +26,11 @@ export class ProductsService {
                 userId,
             },
         });
-        if(created)
+        if(created) {
+            // Sync product to Google Sheets
+            await this.googleSheetsService.syncProductToSheet(created.id);
             return "Product added successfully";
+        }
         }
         catch (error) {
             if(error instanceof HttpException){throw error;}
@@ -112,7 +119,10 @@ export class ProductsService {
             data:updateProductDto,
         });
         if(updated){            
-            return "Product updated successfully";}
+            // Sync updated product to Google Sheets
+            await this.googleSheetsService.syncProductToSheet(updated.id);
+            return "Product updated successfully";
+        }
         }
         catch(error){
             if(error instanceof HttpException){throw error;}
@@ -134,6 +144,8 @@ export class ProductsService {
         await this.prisma.product.delete({
             where:{id},
         });
+        // Remove product from Google Sheets
+        await this.googleSheetsService.removeProductFromSheet(id);
         return "Product deleted successfully";
         }
         catch(error){

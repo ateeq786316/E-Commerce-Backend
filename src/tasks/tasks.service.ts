@@ -5,6 +5,7 @@ import { Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import * as nodemailer from 'nodemailer';
+import { GoogleSheetsService } from '../google-sheets/google-sheets.service';
 
 @Injectable()
 export class TasksService {
@@ -12,7 +13,11 @@ export class TasksService {
     private transporter: nodemailer.Transporter;
     private dynamicJobs: Map<string, CronJob> = new Map();
 
-    constructor(private prisma: PrismaService, private schedulerRegistry: SchedulerRegistry){
+    constructor(
+        private prisma: PrismaService, 
+        private schedulerRegistry: SchedulerRegistry,
+        private googleSheetsService: GoogleSheetsService
+    ){
         this.transporter = nodemailer.createTransport({
             host: 'smtp.gmail.com',
             port: 587,
@@ -134,4 +139,9 @@ export class TasksService {
     getAllDynamicJobsNames(): string[]{
         return Array.from(this.dynamicJobs.keys());
     }
+
+    async syncAllProducts() {
+        await this.googleSheetsService.syncAllProductsToSheet();
+    }
 }
+
