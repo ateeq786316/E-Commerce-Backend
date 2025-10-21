@@ -184,9 +184,7 @@ export class ProductsController {
     async uploadImage(@Param('id') productID : string, @Request() req, @UploadedFile() file: Multer.File){
       if (!file) {
         throw new Error('File is required');
-      }
-      
-      // Manual file size validation (5MB limit)
+      }    
       if (file.size > 1024 * 1024 * 5) {
         throw new Error('File size exceeds the 5MB limit');
       }

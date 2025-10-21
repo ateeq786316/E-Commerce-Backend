@@ -31,12 +31,9 @@ export class TasksService {
 
     @Cron("* * * 1 * *")
     async handleExpiredTokensCleanup() {
-        // this.logger.debug('Cleaning expired tokens...');
         try{
             const currentTime = new Date();
             this.logger.debug(`Current server time : ${currentTime.toISOString()}`);
-            // this.logger.debug(`Current server timezone : ${Intl.DateTimeFormat().resolvedOptions().timeZone}`);
-
             const tokensToBeDeleted = await this.prisma.refreshToken.findMany({
                 where: {expiresAt: {lt: new Date(),},},
                 select: {
@@ -80,9 +77,7 @@ export class TasksService {
             else {
                 this.logger.debug('No expired tokens found');
             }
-
             this.logger.debug(`Deleted ${expiredTokens.count} expired tokens`);
-            // this.logger.debug(`Token cleanup completed. Server time : ${currentTime.toISOString()}, Timezone : ${Intl.DateTimeFormat().resolvedOptions().timeZone}`)
         } 
         catch (error) {
             this.logger.error('Failed to clean up expired tokens', error.stack);

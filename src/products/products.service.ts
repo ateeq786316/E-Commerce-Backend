@@ -33,7 +33,6 @@ export class ProductsService {
             },
         });
         if(created) {
-            // Sync product to Google Sheets
             await this.googleSheetsService.syncProductToSheet(created.id);
             return "Product added successfully";
         }
@@ -126,7 +125,6 @@ export class ProductsService {
             data:updateProductDto,
         });
         if(updated){            
-            // Sync updated product to Google Sheets
             await this.googleSheetsService.syncProductToSheet(updated.id);
             return "Product updated successfully";
         }
@@ -151,7 +149,6 @@ export class ProductsService {
         await this.prisma.product.delete({
             where:{id},
         });
-        // Remove product from Google Sheets
         await this.googleSheetsService.removeProductFromSheet(id);
         return "Product deleted successfully";
         }

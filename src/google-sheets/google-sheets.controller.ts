@@ -27,13 +27,11 @@ export class GoogleSheetsController {
     ): Promise<{ success: boolean; message: string }> {
         console.log("This api got hit =================http://localhost:3000/google-sheets/update=================");
         console.log("Received update data:", JSON.stringify(updateData, null, 2));
-
-        // Security checkup
+        
         if (secret !== this.SHEET_SECRET) {
             console.log("Security check failed - invalid secret key");
             throw new UnauthorizedException('Invalid secret key');
         }
-
         try {
         console.log("About to call googleSheetsService.handleSheetUpdate");
         await this.googleSheetsService.handleSheetUpdate(updateData);
