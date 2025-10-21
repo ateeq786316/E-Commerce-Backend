@@ -18,8 +18,14 @@ export class ProductsService {
     ){}
 
     async create(userId: string, createProductDto: CreateProductDto) {
-
         try{
+        const existingproduct = await this.prisma.product.findFirst({
+                where:{name: createProductDto.name},
+            });
+            if(existingproduct) {
+                throw new HttpException('Product already exists.', HttpStatus.BAD_REQUEST);
+            }
+
         const created =   await this.prisma.product.create({
             data:{
                 ...createProductDto,
@@ -80,6 +86,7 @@ export class ProductsService {
                 reviews:true,
             },
         });
+        console.log(product);
 
         if(!product){
             throw new HttpException('The Product you are looking for does not exist or has been removed.', HttpStatus.NOT_FOUND);

@@ -30,8 +30,8 @@ export class AuthService {
             }
 
             const newPayload = { email: payload.email, sub: payload.sub };
-            const accessToken = this.jwtService.sign(newPayload, { expiresIn: '15m' });
-            const refreshToken = this.jwtService.sign(newPayload, { expiresIn: '1m' });
+            const accessToken = this.jwtService.sign(newPayload, { expiresIn: '25m' });
+            const refreshToken = this.jwtService.sign(newPayload, { expiresIn: '50m' });
 
             await this.prisma.refreshToken.delete({ where: { id: storedToken.id } })
 

@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, HttpException, HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { google } from 'googleapis';
 import { PrismaService } from '../prisma/prisma.service';
@@ -64,6 +64,7 @@ export class GoogleSheetsService {
         this.logger.warn(`Product with ID ${productId} not found`);
         return;
       }
+
       // Prepare data for Google Sheets
       const headers = [
         'ID',
@@ -267,6 +268,178 @@ export class GoogleSheetsService {
       this.logger.log(`Successfully synced ${products.length} products to Google Sheets`);
     } catch (error) {
       this.logger.error('Failed to sync all products to Google Sheets', error.stack);
+    }
+  }
+
+  // New method to handle updates from Google Sheets
+  async handleSheetUpdate(updateData: any) {
+    try {
+      this.logger.log(`Processing update from Google Sheets: ${JSON.stringify(updateData)}`);
+
+      // Validate sheet name
+      if (updateData.sheetName !== 'Products') {
+        this.logger.warn(`Unsupported sheet name: ${updateData.sheetName}`);
+        throw new HttpException(`Unsupported sheet name: ${updateData.sheetName}`, HttpStatus.BAD_REQUEST);
+      }
+
+      // Handle different actions
+      switch (updateData.action) {
+        case 'update':
+          const result = await this.updateProductFromSheet(updateData.data);
+          this.logger.log(`Successfully processed update for product: ${result.id}`);
+          break;
+        case 'delete':
+          await this.deleteProductFromSheet(updateData.row);
+          break;
+        default:
+          this.logger.warn(`Unknown action: ${updateData.action}`);
+          throw new HttpException(`Unknown action: ${updateData.action}`, HttpStatus.BAD_REQUEST);
+      }
+    } catch (error) {
+      this.logger.error(`Failed to handle sheet update: ${error.message}`, error.stack);
+      throw error;
+    }
+  }
+
+  private async updateProductFromSheet(sheetData: any) {
+    console.log("Entering updateProductFromSheet with data:", JSON.stringify(sheetData, null, 2));
+    try {
+      // Log incoming data for debugging
+      this.logger.log(`Received update data for product ${sheetData.id}: ${JSON.stringify(sheetData)}`);
+
+      // Validate required fields
+      if (!sheetData.id) {
+        const error = new Error('Product ID is required');
+        this.logger.error(`Validation error: ${error.message}`);
+        throw new HttpException('Product ID is required', HttpStatus.BAD_REQUEST);
+      }
+
+      // Clean up the data object by removing duplicate fields and keeping only the first occurrence
+      const cleanData: any = {};
+      const fieldOrder = ['id', 'name', 'description', 'price', 'stock', 'category', 'user', 'createdAt', 'updatedAt'];
+      
+      // Process fields in order to ensure we keep the first occurrence
+      for (const field of fieldOrder) {
+        if (field in sheetData) {
+          cleanData[field] = sheetData[field];
+        }
+      }
+
+      this.logger.log(`Cleaned data for product ${cleanData.id}: ${JSON.stringify(cleanData)}`);
+
+      // Validate numeric fields
+      if (cleanData.price !== undefined) {
+        const parsedPrice = typeof cleanData.price === 'string' ? parseFloat(cleanData.price) : cleanData.price;
+        if (isNaN(parsedPrice)) {
+          this.logger.warn(`Invalid price value: ${cleanData.price}. Skipping price update for product ${cleanData.id}`);
+          delete cleanData.price; // Remove invalid price so it doesn't get updated
+        } else {
+          cleanData.price = parsedPrice;
+          this.logger.log(`Parsed price for product ${cleanData.id}: ${cleanData.price}`);
+        }
+      }
+
+      if (cleanData.stock !== undefined) {
+        const parsedStock = typeof cleanData.stock === 'string' ? parseInt(cleanData.stock) : cleanData.stock;
+        if (isNaN(parsedStock)) {
+          this.logger.warn(`Invalid stock value: ${cleanData.stock}. Skipping stock update for product ${cleanData.id}`);
+          delete cleanData.stock; // Remove invalid stock so it doesn't get updated
+        } else {
+          cleanData.stock = parsedStock;
+          this.logger.log(`Parsed stock for product ${cleanData.id}: ${cleanData.stock}`);
+        }
+      }
+
+      // Check if product exists
+          console.log("About to check if product exists");
+      this.logger.log(`Checking if product exists: ${cleanData.id}`);
+      const existingProduct = await this.prisma.product.findUnique({
+        where: { id: cleanData.id },
+      });
+          console.log("Product check result:", existingProduct ? "Found" : "Not found");
+
+
+      if (!existingProduct) {
+        const errorMsg = `Product with ID ${cleanData.id} not found. Cannot update non-existent product.`;
+        this.logger.warn(errorMsg);
+        throw new HttpException(errorMsg, HttpStatus.NOT_FOUND);
+      } else {
+              console.log("About to update product in database");
+        this.logger.log(`Product found: ${existingProduct.id}, name: ${existingProduct.name}`);
+        
+        // Update existing product
+        const updateData: any = {
+          updatedAt: new Date(),
+        };
+        
+        // Only add fields that exist in the clean data and are valid
+        if (cleanData.name !== undefined) updateData.name = cleanData.name;
+        if (cleanData.description !== undefined) updateData.description = cleanData.description;
+        if (cleanData.price !== undefined) updateData.price = cleanData.price;
+        if (cleanData.stock !== undefined) updateData.stock = cleanData.stock;
+
+        this.logger.log(`Updating product ${cleanData.id} with data: ${JSON.stringify(updateData)}`);
+
+        try {
+          const updatedProduct = await this.prisma.product.update({
+            where: { id: cleanData.id },
+            data: updateData,
+          });
+          
+          this.logger.log(`Successfully updated product from sheet: ${updatedProduct.id}`);
+          this.logger.log(`Updated product price: ${updatedProduct.price}`);
+          return updatedProduct;
+        } catch (prismaError) {
+          this.logger.error(`Prisma update failed for product ${cleanData.id}: ${prismaError.message}`, prismaError.stack);
+          throw new HttpException(
+            `Failed to update product in database: ${prismaError.message}`,
+            HttpStatus.INTERNAL_SERVER_ERROR,
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Error in updateProductFromSheet:", error);
+    console.error("Error stack:", error.stack);
+    
+        this.logger.error(`Failed to update product from sheet: ${error.message}`, error.stack);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        `Failed to update product from sheet data: ${error.message}`,
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  private async deleteProductFromSheet(rowNumber: number) {
+    try {
+      // Get the product ID from the row
+      const response = await this.sheets.spreadsheets.values.get({
+        spreadsheetId: this.spreadsheetId,
+        range: `Products!A${rowNumber}:A${rowNumber}`,
+      });
+
+      const rows = response.data.values || [];
+      if (rows.length === 0 || !rows[0][0]) {
+        this.logger.warn(`No product ID found in row ${rowNumber}`);
+        return;
+      }
+
+      const productId = rows[0][0];
+
+      // Delete product from database
+      await this.prisma.product.delete({
+        where: { id: productId },
+      });
+
+      this.logger.log(`Deleted product ${productId} based on sheet deletion`);
+    } catch (error) {
+      this.logger.error(`Failed to delete product from sheet`, error.stack);
+      throw new HttpException(
+        'Failed to delete product based on sheet data',
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 }

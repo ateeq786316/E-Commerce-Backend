@@ -70,6 +70,7 @@ export class ProductsController {
     async getSingleProduct(@Param('id') id: string){
         console.log("This api got hit get a single product=================http://localhost:3000/products/:id=================");
         return this.productsService.findOne(id);
+
     }
 
     @ApiOperation({ summary: 'Update a product by ID' })
