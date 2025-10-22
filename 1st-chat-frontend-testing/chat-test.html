@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time Chat Application</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+            padding: 20px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 350px 2fr;
+            gap: 20px;
+            height: 80vh;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-title {
+            font-size: 1.4rem;
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #f0f0f0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .panel-title i {
+            color: #667eea;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e1e1;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f8f9fa;
+            color: #333;
+            border: 1px solid #e1e1e1;
+        }
+
+        .btn-secondary:hover {
+            background: #e9ecef;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #28a745 0%, #238636 100%);
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+        }
+
+        .status {
+            padding: 12px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-weight: 500;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .user-list {
+            flex: 1;
+            overflow-y: auto;
+            border: 1px solid #e1e1e1;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            background: #f8f9fa;
+        }
+
+        .user-item {
+            padding: 15px;
+            border-bottom: 1px solid #e1e1e1;
+            cursor: pointer;
+            transition: all 0.2s;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .user-item:hover {
+            background: #e3f2fd;
+            transform: translateX(5px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .user-item.active {
+            background: #e3f2fd;
+            border-left: 4px solid #667eea;
+        }
+
+        .user-item:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .user-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 1.1rem;
+        }
+
+        .user-email {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .user-id {
+            font-size: 0.8rem;
+            color: #999;
+            margin-top: 3px;
+        }
+
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .chat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .selected-user {
+            font-weight: 600;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            border: 1px solid #e1e1e1;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            background: #f8f9fa;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .message {
+            max-width: 70%;
+            padding: 15px;
+            border-radius: 18px;
+            position: relative;
+            animation: fadeIn 0.3s ease-in;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.sent {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 5px;
+        }
+
+        .message.received {
+            align-self: flex-start;
+            background: white;
+            color: #333;
+            border: 1px solid #e1e1e1;
+            border-bottom-left-radius: 5px;
+        }
+
+        .message-header {
+            font-size: 0.85rem;
+            opacity: 0.9;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .message-content {
+            line-height: 1.4;
+        }
+
+        .message-time {
+            font-size: 0.75rem;
+            opacity: 0.8;
+            text-align: right;
+            margin-top: 8px;
+        }
+
+        .input-container {
+            display: flex;
+            gap: 10px;
+        }
+
+        .message-input {
+            flex: 1;
+        }
+
+        .send-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .send-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .send-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .online-indicator {
+            width: 12px;
+            height: 12px;
+            background: #28a745;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        .offline-indicator {
+            width: 12px;
+            height: 12px;
+            background: #dc3545;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+        }
+
+        .user-setup-panel {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .setup-instructions {
+            background: #e3f2fd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+        }
+
+        .setup-instructions h3 {
+            margin-bottom: 10px;
+            color: #1976d2;
+        }
+
+        .setup-instructions ol {
+            padding-left: 20px;
+        }
+
+        .setup-instructions li {
+            margin-bottom: 8px;
+        }
+
+        .active-chat-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            background: #28a745;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        @media (max-width: 1200px) {
+            .main-content {
+                grid-template-columns: 1fr 300px 2fr;
+            }
+        }
+
+        @media (max-width: 992px) {
+            .main-content {
+                grid-template-columns: 1fr 1fr;
+            }
+            
+            .chat-panel {
+                grid-column: 1 / -1;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                height: auto;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .input-container {
+                flex-direction: column;
+            }
+            
+            .send-button {
+                padding: 12px;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-comments"></i> Real-time Chat</h1>
+            <p>Connect with users from the database and chat in real-time</p>
+        </div>
+
+        <div class="main-content">
+            <!-- User Setup Panel -->
+            <div class="panel user-setup-panel">
+                <h2 class="panel-title"><i class="fas fa-user-cog"></i> User Setup</h2>
+                
+                <div class="setup-instructions">
+                    <h3>How to Get Started:</h3>
+                    <ol>
+                        <li>Enter your database User ID below</li>
+                        <li>Click "Connect to Chat Server"</li>
+                        <li>Select a user from the list to start chatting</li>
+                    </ol>
+                </div>
+                
+                <div class="form-group">
+                    <label for="userId1"><i class="fas fa-fingerprint"></i> Your Database User ID</label>
+                    <input type="text" id="userId1" class="form-control" placeholder="Enter your database user ID">
+                </div>
+                
+                <button onclick="connectAndJoinUser(1)" class="btn btn-primary" id="connectBtn1">
+                    <i class="fas fa-plug"></i> Connect to Chat Server
+                </button>
+                
+                <div id="connectionStatus1" class="status" style="display: none;"></div>
+                
+                <button onclick="refreshUserList(1)" class="btn btn-secondary" id="refreshUsersBtn1" disabled>
+                    <i class="fas fa-sync-alt"></i> Refresh User List
+                </button>
+            </div>
+
+            <!-- Users List Panel -->
+            <div class="panel">
+                <h2 class="panel-title"><i class="fas fa-users"></i> Available Users</h2>
+                
+                <div class="user-list" id="allUsers1">
+                    <div style="text-align: center; color: #666; padding: 40px;">
+                        <i class="fas fa-users" style="font-size: 3rem; margin-bottom: 15px; opacity: 0.5;"></i>
+                        <p>Connect to load available users</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chat Panel -->
+            <div class="panel chat-panel">
+                <h2 class="panel-title"><i class="fas fa-comment-dots"></i> Chat</h2>
+                
+                <div class="chat-container">
+                    <div class="chat-header">
+                        <div class="selected-user" id="selectedUser1">
+                            <i class="fas fa-user-friends"></i> No user selected
+                        </div>
+                        <div class="connection-status" id="chatConnectionStatus1">
+                            <span class="offline-indicator"></span>
+                            <span>Disconnected</span>
+                        </div>
+                    </div>
+                    
+                    <div class="messages-container" id="messages1">
+                        <div style="text-align: center; color: #666; padding: 40px;">
+                            <i class="fas fa-comment-alt" style="font-size: 3rem; margin-bottom: 15px; opacity: 0.5;"></i>
+                            <p>Select a user from the list to start chatting</p>
+                        </div>
+                    </div>
+                    
+                    <div class="input-container">
+                        <input type="text" id="message1" class="form-control message-input" placeholder="Type your message..." disabled>
+                        <button onclick="sendMessage(1)" class="send-button" id="sendBtn1" disabled>
+                            <i class="fas fa-paper-plane"></i> Send
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // User data
+        const users = {
+            1: { 
+                userId: null, 
+                socket: null, 
+                currentReceiver: null,
+                receiverInfo: null
+            }
+        };
+        
+        // Connect and join user function
+        function connectAndJoinUser(userNumber) {
+            const userId = document.getElementById(`userId${userNumber}`).value;
+            
+            if (!userId) {
+                showStatus(`connectionStatus${userNumber}`, 'error', 'Please enter your database user ID');
+                return;
+            }
+            
+            try {
+                showStatus(`connectionStatus${userNumber}`, 'info', 'Connecting to chat server...');
+                
+                // Create socket connection
+                users[userNumber].socket = io({
+                    transports: ['websocket', 'polling'],
+                    withCredentials: false
+                });
+                
+                const socket = users[userNumber].socket;
+                
+                // Setup event listeners
+                socket.on('connect', () => {
+                    console.log(`User ${userNumber} connected to WebSocket`);
+                    showStatus(`connectionStatus${userNumber}`, 'success', 'Connected to chat server');
+                    updateChatConnectionStatus(userNumber, true);
+                    
+                    // Automatically join chat after connection
+                    socket.emit('join', { userId: userId });
+                });
+                
+                socket.on('connected', (data) => {
+                    console.log(`User ${userNumber} server confirmation:`, data);
+                });
+                
+                socket.on('joined', (data) => {
+                    console.log(`User ${userNumber} joined:`, data);
+                    users[userNumber].userId = data.userId;
+                    showStatus(`connectionStatus${userNumber}`, 'success', `Welcome, ${data.userInfo.name}!`);
+                    
+                    // Load all users after joining
+                    socket.emit('getAllUsers');
+                });
+                
+                socket.on('receiveMessage', (message) => {
+                    console.log(`User ${userNumber} received message:`, message);
+                    displayMessage(userNumber, message, false);
+                });
+                
+                socket.on('messageSent', (message) => {
+                    console.log(`User ${userNumber} message sent:`, message);
+                    displayMessage(userNumber, message, true);
+                });
+                
+                socket.on('messageError', (error) => {
+                    console.log(`User ${userNumber} message error:`, error);
+                    showStatus(`connectionStatus${userNumber}`, 'error', `Message Error: ${error.message}`);
+                });
+                
+                socket.on('error', (error) => {
+                    console.log(`User ${userNumber} WebSocket error:`, error);
+                    showStatus(`connectionStatus${userNumber}`, 'error', `Error: ${error.message}`);
+                });
+                
+                socket.on('disconnect', (reason) => {
+                    console.log(`User ${userNumber} disconnected:`, reason);
+                    showStatus(`connectionStatus${userNumber}`, 'error', `Disconnected: ${reason}`);
+                    updateChatConnectionStatus(userNumber, false);
+                    clearUserList();
+                });
+                
+                socket.on('allUsers', (data) => {
+                    console.log(`User ${userNumber} all users:`, data);
+                    displayUserList(userNumber, data.users);
+                    document.getElementById(`refreshUsersBtn${userNumber}`).disabled = false;
+                });
+                
+            } catch (error) {
+                console.error(`Connection error for user ${userNumber}:`, error);
+                showStatus(`connectionStatus${userNumber}`, 'error', `Connection error: ${error.message}`);
+            }
+        }
+        
+        // Refresh user list
+        function refreshUserList(userNumber) {
+            if (users[userNumber].socket) {
+                showStatus(`connectionStatus${userNumber}`, 'info', 'Refreshing user list...');
+                users[userNumber].socket.emit('getAllUsers');
+            }
+        }
+        
+        // Select user to chat with
+        function selectUserForChat(userNumber, receiverId, receiverInfo) {
+            // Update UI to show selected user
+            users[userNumber].currentReceiver = receiverId;
+            users[userNumber].receiverInfo = receiverInfo;
+            
+            // Update selected user display
+            document.getElementById('selectedUser1').innerHTML = 
+                `<span class="active-chat-indicator"></span> Chatting with: ${receiverInfo.name}`;
+            
+            // Highlight selected user in list
+            const userItems = document.querySelectorAll('.user-item');
+            userItems.forEach(item => {
+                if (item.dataset.userId === receiverId) {
+                    item.classList.add('active');
+                } else {
+                    item.classList.remove('active');
+                }
+            });
+            
+            // Enable message input
+            document.getElementById(`message1`).disabled = false;
+            document.getElementById(`sendBtn1`).disabled = false;
+            
+            // Clear previous messages
+            document.getElementById('messages1').innerHTML = `
+                <div style="text-align: center; color: #666; padding: 20px;">
+                    <p>Chat started with <strong>${receiverInfo.name}</strong></p>
+                    <p><small>Type a message below to start the conversation</small></p>
+                </div>
+            `;
+        }
+        
+        // Send message
+        function sendMessage(userNumber) {
+            const content = document.getElementById(`message1`).value;
+            const senderId = document.getElementById(`userId${userNumber}`).value;
+            
+            if (!users[userNumber].currentReceiver || !content || !senderId) {
+                showStatus(`connectionStatus${userNumber}`, 'error', 'Please select a recipient and enter a message');
+                return;
+            }
+            
+            const message = {
+                senderId: senderId,
+                receiverId: users[userNumber].currentReceiver,
+                content: content,
+                timestamp: new Date()
+            };
+            
+            users[userNumber].socket.emit('sendMessage', message);
+            
+            // Clear input
+            document.getElementById(`message1`).value = '';
+        }
+        
+        // Display message in UI
+        function displayMessage(userNumber, message, isSent) {
+            const messagesContainer = document.getElementById(`messages1`);
+            
+            // Remove the initial message if it's the first message
+            if (messagesContainer.children.length === 1 && 
+                messagesContainer.children[0].textContent.includes('Chat started with')) {
+                messagesContainer.innerHTML = '';
+            }
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isSent ? 'sent' : 'received'}`;
+            
+            const messageHeader = document.createElement('div');
+            messageHeader.className = 'message-header';
+            messageHeader.textContent = isSent ? 'You' : (users[userNumber].receiverInfo ? users[userNumber].receiverInfo.name : message.senderId);
+            
+            const messageContent = document.createElement('div');
+            messageContent.className = 'message-content';
+            messageContent.textContent = message.content;
+            
+            const messageTime = document.createElement('div');
+            messageTime.className = 'message-time';
+            messageTime.textContent = new Date(message.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            
+            messageDiv.appendChild(messageHeader);
+            messageDiv.appendChild(messageContent);
+            messageDiv.appendChild(messageTime);
+            
+            messagesContainer.appendChild(messageDiv);
+            
+            // Scroll to bottom
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+        
+        // Display user list
+        function displayUserList(userNumber, usersList) {
+            const element = document.getElementById(`allUsers1`);
+            const currentUserId = document.getElementById(`userId${userNumber}`).value;
+            
+            if (!usersList || usersList.length === 0) {
+                element.innerHTML = `
+                    <div style="text-align: center; color: #666; padding: 40px;">
+                        <i class="fas fa-user-friends" style="font-size: 3rem; margin-bottom: 15px; opacity: 0.5;"></i>
+                        <p>No users found in database</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Filter out current user
+            const otherUsers = usersList.filter(user => user.id !== currentUserId);
+            
+            if (otherUsers.length === 0) {
+                element.innerHTML = `
+                    <div style="text-align: center; color: #666; padding: 40px;">
+                        <i class="fas fa-user-friends" style="font-size: 3rem; margin-bottom: 15px; opacity: 0.5;"></i>
+                        <p>No other users found</p>
+                        <p><small>Create more users to start chatting</small></p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '';
+            otherUsers.forEach(user => {
+                html += `
+                    <div class="user-item" data-user-id="${user.id}" onclick="selectUserForChat(1, '${user.id}', {name: '${user.name}', email: '${user.email}'})">
+                        <div class="user-name">
+                            <span class="online-indicator"></span>
+                            ${user.name}
+                        </div>
+                        <div class="user-email">${user.email}</div>
+                        <div class="user-id">ID: ${user.id}</div>
+                    </div>
+                `;
+            });
+            
+            element.innerHTML = html;
+        }
+        
+        // Clear user list
+        function clearUserList() {
+            document.getElementById(`allUsers1`).innerHTML = `
+                <div style="text-align: center; color: #666; padding: 40px;">
+                    <i class="fas fa-users" style="font-size: 3rem; margin-bottom: 15px; opacity: 0.5;"></i>
+                    <p>Connect to load available users</p>
+                </div>
+            `;
+            document.getElementById(`refreshUsersBtn1`).disabled = true;
+        }
+        
+        // Show status message
+        function showStatus(elementId, type, message) {
+            const element = document.getElementById(elementId);
+            element.className = `status ${type}`;
+            element.innerHTML = message;
+            element.style.display = 'block';
+        }
+        
+        // Update chat connection status
+        function updateChatConnectionStatus(userNumber, isConnected) {
+            const statusElement = document.getElementById(`chatConnectionStatus1`);
+            if (isConnected) {
+                statusElement.innerHTML = '<span class="online-indicator"></span> <span>Connected</span>';
+            } else {
+                statusElement.innerHTML = '<span class="offline-indicator"></span> <span>Disconnected</span>';
+                // Disable chat controls when disconnected
+                document.getElementById(`message1`).disabled = true;
+                document.getElementById(`sendBtn1`).disabled = true;
+            }
+        }
+        
+        // Allow sending message with Enter key
+        document.getElementById('message1').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendMessage(1);
+            }
+        });
+    </script>
+</body>
+</html>

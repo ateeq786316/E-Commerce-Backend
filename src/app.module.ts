@@ -8,6 +8,7 @@ import { ProductsModule } from './products/products.module';
 import { TasksModule } from './tasks/tasks.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { GoogleSheetsModule } from './google-sheets/google-sheets.module';
+import { GatewayModule } from './gateway/gateway.module';
 
 
 @Module({
@@ -20,7 +21,7 @@ import { GoogleSheetsModule } from './google-sheets/google-sheets.module';
     UsersModule, 
     ProductsModule, 
     CategoriesModule, 
-    TasksModule, GoogleSheetsModule
+    TasksModule, GoogleSheetsModule, GatewayModule
   ],
   controllers: [],
   providers: [],

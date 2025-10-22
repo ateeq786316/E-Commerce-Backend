@@ -41,4 +41,25 @@ export class UsersService {
             throw new HttpException('Unable to find your account. Please check information and Try again.', HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+    async findAllExceptCurrent(currentUserId: string){
+        try{
+            const users= await this.prisma.user.findMany({
+                where:{
+                    NOT:{
+                        id: currentUserId
+                    }
+                },
+                select:{
+                    id: true,
+                    name: true,
+                    email: true,
+                }
+            });
+            return users;
+        } catch (error) {
+            if(error instanceof HttpException){throw error;}
+            throw new HttpException('Unable to retrieve users.', HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
 }

@@ -38,6 +38,7 @@ export class AuthController {
     @Post('login')
     async login(@Body() loginDto: LoginDto) {
         console.log("This api got hit =================http://localhost:3000/auth/login=================");
+        // console.log("loginDto", loginDto);
         return this.authService.login(loginDto);
     }
     

@@ -120,11 +120,14 @@ export class AuthService {
                 expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
             } 
         });
+
+        const { password, ...userWithoutPassword } = user;
         return{
-            user: user,
+            user: userWithoutPassword,
             accessToken,
             refreshToken,
         };
+        
         }
         catch (error) {
             throw new HttpException('Unable to Login. Please try again.', HttpStatus.INTERNAL_SERVER_ERROR);
